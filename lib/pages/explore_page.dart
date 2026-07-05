@@ -489,6 +489,8 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
 
   bool loading = true;
 
+  bool _retried = false;
+
   String? message;
 
   Map<String, dynamic> get state => {
@@ -509,6 +511,7 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
   }
 
   void refresh() {
+    _retried = false;
     setState(() {
       loading = true;
       message = null;
@@ -531,17 +534,39 @@ class _MultiPartExplorePageState extends State<_MultiPartExplorePage> {
   }
 
   void load() async {
-    var res = await data.loadMultiPart!();
-    loading = false;
-    if (mounted) {
-      setState(() {
-        if (res.error) {
-          message = res.errorMessage;
-        } else {
-          parts = res.data;
+    try {
+      var res = await data.loadMultiPart!();
+      loading = false;
+      if (mounted) {
+        if (res.error && !_retried) {
+          // Auto-retry once on error
+          _retried = true;
+          load();
+          return;
         }
-      });
-      storeState();
+        setState(() {
+          if (res.error) {
+            message = res.errorMessage;
+          } else {
+            parts = res.data;
+          }
+        });
+        storeState();
+      }
+    } catch (e) {
+      loading = false;
+      if (mounted) {
+        if (!_retried) {
+          // Auto-retry once on exception
+          _retried = true;
+          load();
+          return;
+        }
+        setState(() {
+          message = e.toString();
+        });
+        storeState();
+      }
     }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:venera/foundation/appdata.dart';
 import 'package:venera/foundation/js_engine.dart';
 import 'package:venera/foundation/log.dart';
 import 'package:venera/network/app_dio.dart';
@@ -44,6 +45,16 @@ class JmDomainManager extends ChangeNotifier {
   String? _currentDomain;
   Map<String, int> _lastTestResults = {};
 
+  /// Cached domain list from last session, with the fastest domain first.
+  /// Returns null on first launch or if cache is stale.
+  List<String>? get _cachedDomains {
+    final raw = appdata.settings['jmCachedDomains'];
+    if (raw is List && raw.isNotEmpty && raw.every((e) => e is String)) {
+      return raw.cast<String>();
+    }
+    return null;
+  }
+
   bool get isTesting => _isTesting;
   String? get currentDomain => _currentDomain;
   Map<String, int> get lastTestResults => Map.unmodifiable(_lastTestResults);
@@ -54,10 +65,21 @@ class JmDomainManager extends ChangeNotifier {
   Future<void> init() async {
     Log.info('JmDomain', 'Initializing...');
 
-    // Test all known domains immediately — no delay
+    // Immediately set domains in JS engine so the JM source
+    // has valid domains from the start — prevents "cannot read property
+    // of undefined" errors when HomePage loads before domain tests finish.
+    // Use cached list from last session if available (keeps the best domain).
+    final initialDomains = _cachedDomains ?? _knownApiDomains;
+    _syncDomainsToJsEngine(initialDomains);
+    if (_cachedDomains != null) {
+      _currentDomain = _cachedDomains!.first;
+    }
+
+    // Test all known domains and switch to fastest
     await testAndSwitchToBestDomain();
 
-    // Periodic re-check every 30 minutes
+    // Periodic re-check so the domain auto-recovers if the current one
+    // becomes slow or unreachable during a reading session.
     _periodicTimer?.cancel();
     _periodicTimer = Timer.periodic(
       const Duration(minutes: 30),
@@ -98,6 +120,8 @@ class JmDomainManager extends ChangeNotifier {
           _currentDomain = bestDomain;
           // Update JS engine's apiDomains so jm source uses the best domain
           _syncDomainsToJsEngine(allDomains);
+          // Persist so next launch starts with the best domain immediately
+          _saveDomains(allDomains);
           Log.info('JmDomain', '✅ Switched to best domain: $bestDomain');
         }
       } else {
@@ -111,6 +135,7 @@ class JmDomainManager extends ChangeNotifier {
           if (bestDomain != null) {
             _currentDomain = bestDomain;
             _syncDomainsToJsEngine(fallbackDomains);
+            _saveDomains(fallbackDomains);
             Log.info("JmDomain", "✅ Fallback switched to best domain: $bestDomain");
           }
         }
@@ -123,6 +148,17 @@ class JmDomainManager extends ChangeNotifier {
     } finally {
       _isTesting = false;
       notifyListeners();
+    }
+  }
+
+  /// Persist the domain list to appdata so the next session
+  /// can start with the best-known domain immediately.
+  void _saveDomains(List<String> domains) {
+    try {
+      appdata.settings['jmCachedDomains'] = domains;
+      appdata.saveData();
+    } catch (e) {
+      Log.warning('JmDomain', 'Failed to save domains: $e');
     }
   }
 

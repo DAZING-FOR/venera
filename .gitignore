@@ -48,5 +48,10 @@ app.*.map.json
 
 add_translation.py
 
+# Local Claude Code agent files
+memory/
+CLAUDE.md
+task_plan.md
+
 */*/generated_*
 */*/Generated*

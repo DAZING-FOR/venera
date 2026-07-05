@@ -9,7 +9,55 @@ import 'package:venera/utils/image.dart';
 
 import 'app_dio.dart';
 
+/// A simple semaphore for limiting concurrent network image downloads.
+class _Semaphore {
+  int max;
+  int _current = 0;
+  final List<void Function()> _waiters = [];
+
+  _Semaphore(this.max);
+
+  /// Update the maximum concurrent count at runtime.
+  /// Wakes up queued waiters if the limit was increased.
+  void setMax(int newMax) {
+    if (newMax < 1) return;
+    max = newMax;
+    while (_current < max && _waiters.isNotEmpty) {
+      _current++;
+      _waiters.removeAt(0)();
+    }
+  }
+
+  Future<void> acquire() async {
+    if (_current < max) {
+      _current++;
+      return;
+    }
+    final completer = Completer<void>();
+    _waiters.add(completer.complete);
+    await completer.future;
+    _current++;
+  }
+
+  void release() {
+    _current--;
+    if (_waiters.isNotEmpty) {
+      _waiters.removeAt(0)();
+    }
+  }
+}
+
 abstract class ImageDownloader {
+  /// Semaphore to limit concurrent image downloads.
+  /// Prevents too many simultaneous requests from overwhelming
+  /// the network connection or triggering server-side rate limiting.
+  static final _downloadSemaphore = _Semaphore(5);
+
+  /// Update the max concurrent downloads from settings at runtime.
+  static void updateMaxConcurrentDownloads(int max) {
+    _downloadSemaphore.setMax(max);
+  }
+
   static Stream<ImageDownloadProgress> loadThumbnail(
       String url, String? sourceKey,
       [String? cid]) async* {
@@ -145,6 +193,12 @@ abstract class ImageDownloader {
           {};
     }
     var retryLimit = 5;
+
+    // Acquire semaphore slot before starting network download.
+    // This limits concurrent HTTP requests across all image downloads
+    // to avoid overwhelming the network or triggering rate limits.
+    await _downloadSemaphore.acquire();
+    try {
     while (true) {
       try {
         configs['headers'] ??= {
@@ -237,6 +291,9 @@ abstract class ImageDownloader {
           (configs['onLoadFailed'] as JSInvokable).free();
         }
       }
+    }
+    } finally {
+      _downloadSemaphore.release();
     }
   }
 }

@@ -411,6 +411,21 @@ class _ReaderSettingsState extends State<ReaderSettings> {
           comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
           useDeviceSettings: useDeviceSpecificSettings,
         ).toSliver(),
+        _SliderSetting(
+          title: "Max concurrent downloads".tl,
+          settingsIndex: "maxConcurrentDownloads",
+          interval: 1,
+          min: 1,
+          max: 16,
+          onChanged: () {
+            ImageDownloader.updateMaxConcurrentDownloads(
+              appdata.settings['maxConcurrentDownloads'] as int,
+            );
+          },
+          comicId: isEnabledSpecificSettings ? widget.comicId : null,
+          comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+          useDeviceSettings: useDeviceSpecificSettings,
+        ).toSliver(),
         _SwitchSetting(
           title: "Show Page Number".tl,
           settingKey: "showPageNumberInReader",

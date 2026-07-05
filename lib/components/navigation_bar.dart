@@ -482,7 +482,7 @@ class _NaviMainViewState extends State<_NaviMainView> {
               index: state.currentPage,
               children: List.generate(
                 state.widget.paneItems.length,
-                (i) => state.buildMainViewContent(),
+                (i) => state.widget.pageBuilder(i),
               ),
             ),
           ),

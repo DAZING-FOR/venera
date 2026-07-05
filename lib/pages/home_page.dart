@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  Future<void> _loadData({bool tryRefreshDomain = true}) async {
+  Future<void> _loadData({bool tryRefreshDomain = true, bool isRetry = false}) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -106,6 +106,13 @@ class _HomePageState extends State<HomePage>
       }
     } catch (e) {
       if (mounted) {
+        // Auto-retry once on transient network errors
+        if (!isRetry) {
+          Log.info('HomePage', 'Load threw, retrying once...');
+          await JmDomainManager().testAndSwitchToBestDomain();
+          await _loadData(tryRefreshDomain: false, isRetry: true);
+          return;
+        }
         setState(() {
           _loading = false;
           _error = e.toString();
