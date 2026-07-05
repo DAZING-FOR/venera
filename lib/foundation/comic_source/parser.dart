@@ -764,20 +764,65 @@ class ComicSourceParser {
   }
 
   LoadComicFunc? _parseLoadComicFunc() {
+    // Track in-flight requests to deduplicate concurrent loads for the same comic
+    // (e.g., when ComicTile starts preloading and ComicPage also loads the same id)
+    final pendingLoads = <String, Future<Res<ComicDetails>>>{};
+    // Per-source counter to track loadInfo call order
+    var callSeq = 0;
+
     return (id) async {
+      final cacheKey = '$_key:$id';
+      final seq = ++callSeq;
+      final sw = Stopwatch()..start();
+
+      Log.info('PERF', '[loadInfo#$seq] start comicId=$id source=$_key');
+
+      // 1. Check in-memory cache first
+      final cached = _comicDetailCache.get(_key!, id);
+      if (cached != null) {
+        Log.info('PERF', '[loadInfo#$seq] CACHE HIT -> ${sw.elapsedMilliseconds}ms');
+        return Res(cached);
+      }
+
+      // 2. If a load is already in-flight (e.g. preloaded by ComicTile), share it
+      if (pendingLoads.containsKey(cacheKey)) {
+        final result = await pendingLoads[cacheKey]!;
+        Log.info('PERF', '[loadInfo#$seq] IN-FLIGHT (waited ${sw.elapsedMilliseconds}ms)');
+        return result;
+      }
+
+      // 3. Start a new load
+      final future = _doLoadComicInfo(id);
+      pendingLoads[cacheKey] = future;
       try {
-        var res = await JsEngine().runCode("""
-          ComicSource.sources.$_key.comic.loadInfo(${jsonEncode(id)})
-        """);
-        if (res is! Map<String, dynamic>) throw "Invalid data";
-        res['comicId'] = id;
-        res['sourceKey'] = _key;
-        return Res(ComicDetails.fromJson(res));
-      } catch (e, s) {
-        Log.error("Network", "$e\n$s");
-        return Res.error(e.toString());
+        final result = await future;
+        Log.info('PERF', '[loadInfo#$seq] COMPLETED ${sw.elapsedMilliseconds}ms');
+        return result;
+      } finally {
+        pendingLoads.remove(cacheKey);
       }
     };
+  }
+
+  Future<Res<ComicDetails>> _doLoadComicInfo(String id) async {
+    final sw = Stopwatch()..start();
+    try {
+      var res = await JsEngine().runCode("""
+          ComicSource.sources.$_key.comic.loadInfo(${jsonEncode(id)})
+        """);
+      if (res is! Map<String, dynamic>) throw "Invalid data";
+      res['comicId'] = id;
+      res['sourceKey'] = _key;
+      var details = ComicDetails.fromJson(res);
+      // Cache for subsequent visits
+      _comicDetailCache.put(_key!, id, details);
+      Log.info('PERF', '[_doLoadComicInfo] JS+parse: ${sw.elapsedMilliseconds}ms id=$id');
+      return Res(details);
+    } catch (e, s) {
+      Log.error("PERF", "[_doLoadComicInfo] FAILED after ${sw.elapsedMilliseconds}ms id=$id error=$e");
+      Log.error("Network", "$e\n$s");
+      return Res.error(e.toString());
+    }
   }
 
   LoadComicPagesFunc? _parseLoadComicPagesFunc() {

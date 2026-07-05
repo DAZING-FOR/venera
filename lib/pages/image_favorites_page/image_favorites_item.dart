@@ -23,7 +23,7 @@ class _ImageFavoritesItemState extends State<_ImageFavoritesItem> {
   late final imageFavorites = widget.imageFavoritesComic.images.toList();
 
   void goComicInfo(ImageFavoritesComic comic) {
-    App.mainNavigatorKey?.currentContext?.to(() => ComicPage(
+    App.rootContext.to(() => ComicPage(
           id: comic.id,
           sourceKey: comic.sourceKey,
         ));

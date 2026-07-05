@@ -32,6 +32,53 @@ part 'models.dart';
 
 part 'types.dart';
 
+/// In-memory cache for comic details, keyed by "$sourceKey:$comicId".
+/// Reduces duplicate HTTP requests when navigating to the same comic
+/// multiple times within a session, or when the JS source has already
+/// loaded the data through a different path (e.g., direct ID search).
+class _ComicDetailCache {
+  static const _maxEntries = 200;
+  static const _ttl = Duration(minutes: 10);
+  final _cache = <String, _Entry>{};
+  final _accessOrder = <String>[];
+
+  void put(String sourceKey, String comicId, ComicDetails details) {
+    final key = '$sourceKey:$comicId';
+    _cache[key] = _Entry(details, DateTime.now());
+    _accessOrder.remove(key);
+    _accessOrder.add(key);
+    if (_accessOrder.length > _maxEntries) {
+      final oldest = _accessOrder.removeAt(0);
+      _cache.remove(oldest);
+    }
+  }
+
+  ComicDetails? get(String sourceKey, String comicId) {
+    final key = '$sourceKey:$comicId';
+    final entry = _cache[key];
+    if (entry == null) return null;
+    if (DateTime.now().difference(entry.time) > _ttl) {
+      _cache.remove(key);
+      _accessOrder.remove(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  void clear() {
+    _cache.clear();
+    _accessOrder.clear();
+  }
+}
+
+class _Entry {
+  final ComicDetails data;
+  final DateTime time;
+  _Entry(this.data, this.time);
+}
+
+final _comicDetailCache = _ComicDetailCache();
+
 class ComicSourceManager with ChangeNotifier, Init {
   final List<ComicSource> _sources = [];
 
@@ -75,6 +122,7 @@ class ComicSourceManager with ChangeNotifier, Init {
 
   Future reload() async {
     _sources.clear();
+    _comicDetailCache.clear();
     JsEngine().runCode("ComicSource.sources = {};");
     await doInit();
     notifyListeners();

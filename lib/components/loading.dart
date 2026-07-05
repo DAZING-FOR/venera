@@ -133,20 +133,9 @@ abstract class LoadingState<T extends StatefulWidget, S extends Object>
   Future<Res<S>> loadData();
 
   Future<Res<S>> loadDataWithRetry() async {
-    int retry = 0;
-    while (true) {
-      var res = await loadData();
-      if (res.success) {
-        return res;
-      } else {
-        if (!mounted) return res;
-        if (retry >= 3) {
-          return res;
-        }
-        retry++;
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-    }
+    // Only try once — if it fails, show the error immediately with a Retry button.
+    // The user can tap Retry manually instead of waiting through silent retries.
+    return loadData();
   }
 
   FutureOr<void> onDataLoaded() {}

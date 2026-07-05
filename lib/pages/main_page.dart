@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:venera/foundation/appdata.dart';
-import 'package:venera/pages/categories_page.dart';
 import 'package:venera/pages/search_page.dart';
 import 'package:venera/pages/settings/settings_page.dart';
 import 'package:venera/utils/translations.dart';
 
 import '../components/components.dart';
 import '../foundation/app.dart';
+import 'categories_page.dart';
 import 'explore_page.dart';
-import 'favorites/favorites_page.dart';
 import 'home_page.dart';
+import 'my_page.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -46,14 +46,14 @@ class _MainPageState extends State<MainPage> {
 
   final _pages = [
     const HomePage(),
-    const FavoritesPage(
-      key: PageStorageKey('favorites'),
+    const CategoriesPage(
+      key: PageStorageKey('categories'),
     ),
     const ExplorePage(
       key: PageStorageKey('explore'),
     ),
-    const CategoriesPage(
-      key: PageStorageKey('categories'),
+    const MyPage(
+      key: PageStorageKey('my'),
     ),
   ];
 
@@ -72,9 +72,9 @@ class _MainPageState extends State<MainPage> {
           activeIcon: Icons.home,
         ),
         PaneItemEntry(
-          label: 'Favorites'.tl,
-          icon: Icons.local_activity_outlined,
-          activeIcon: Icons.local_activity,
+          label: 'Categories'.tl,
+          icon: Icons.category_outlined,
+          activeIcon: Icons.category,
         ),
         PaneItemEntry(
           label: 'Explore'.tl,
@@ -82,9 +82,9 @@ class _MainPageState extends State<MainPage> {
           activeIcon: Icons.explore,
         ),
         PaneItemEntry(
-          label: 'Categories'.tl,
-          icon: Icons.category_outlined,
-          activeIcon: Icons.category,
+          label: 'My'.tl,
+          icon: Icons.person_outline,
+          activeIcon: Icons.person,
         ),
       ],
       onPageChanged: (i) {

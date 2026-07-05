@@ -174,8 +174,8 @@ class Settings with ChangeNotifier {
   final _data = <String, dynamic>{
     'comicDisplayMode': 'detailed', // detailed, brief
     'comicTileScale': 1.00, // 0.75-1.25
-    'color': 'system', // red, pink, purple, green, orange, blue
-    'theme_mode': 'system', // light, dark, system
+    'color': 'blue', // red, pink, purple, green, orange, blue
+    'theme_mode': 'light', // light, dark, system
     'newFavoriteAddTo': 'end', // start, end
     'moveFavoriteAfterRead': 'none', // none, end, start
     'proxy': 'system', // direct, system, proxy string
@@ -189,7 +189,7 @@ class Settings with ChangeNotifier {
     'blockedCommentWords': [],
     'defaultSearchTarget': null,
     'autoPageTurningInterval': 5, // in seconds
-    'readerMode': 'galleryLeftToRight', // values of [ReaderMode]
+    'readerMode': 'continuousTopToBottom', // values of [ReaderMode]
     'readerScreenPicNumberForLandscape': 1, // 1 - 5
     'readerScreenPicNumberForPortrait': 1, // 1 - 5
     'enableTapToTurnPages': true,

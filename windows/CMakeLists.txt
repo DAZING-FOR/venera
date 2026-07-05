@@ -43,6 +43,7 @@ function(APPLY_STANDARD_SETTINGS TARGET)
   target_compile_options(${TARGET} PRIVATE /EHsc)
   target_compile_definitions(${TARGET} PRIVATE "_HAS_EXCEPTIONS=0")
   target_compile_definitions(${TARGET} PRIVATE "$<$<CONFIG:Debug>:_DEBUG>")
+  target_compile_definitions(${TARGET} PRIVATE _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
 endfunction()
 
 # Flutter library and tool build rules.
@@ -56,6 +57,15 @@ add_subdirectory("runner")
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# Patch: flutter_inappwebview_windows is missing render_process_gone_detail.cpp
+# in its CMakeLists.txt. Add the source directly to the target so it survives
+# flutter pub get cycles.
+if(TARGET flutter_inappwebview_windows_plugin)
+  target_sources(flutter_inappwebview_windows_plugin PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/flutter/ephemeral/.plugin_symlinks/flutter_inappwebview_windows/windows/types/render_process_gone_detail.cpp"
+  )
+endif()
 
 
 # === Installation ===

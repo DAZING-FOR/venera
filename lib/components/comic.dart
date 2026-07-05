@@ -54,7 +54,14 @@ class ComicTile extends StatelessWidget {
       onTap!();
       return;
     }
-    App.mainNavigatorKey?.currentContext?.to(
+    // Start preloading comic details immediately, overlapping with route animation
+    // so ComicPage doesn't have to wait for a full HTTP request from scratch.
+    ComicSource.find(comic.sourceKey)?.loadComicInfo?.call(comic.id);
+
+    // Use the ROOT navigator so the detail page always overlays on top,
+    // regardless of which page the user is currently on (search, favorites, etc.).
+    // Using mainNavigatorKey would push behind outer-routed pages.
+    App.rootContext.to(
       () => ComicPage(
         id: comic.id,
         sourceKey: comic.sourceKey,
@@ -95,7 +102,7 @@ class ComicTile extends StatelessWidget {
           icon: Icons.chrome_reader_mode_outlined,
           text: 'Details'.tl,
           onClick: () {
-            App.mainNavigatorKey?.currentContext?.to(
+            App.rootContext.to(
               () => ComicPage(
                 id: comic.id,
                 sourceKey: comic.sourceKey,

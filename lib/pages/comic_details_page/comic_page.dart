@@ -17,6 +17,7 @@ import 'package:venera/foundation/favorites.dart';
 import 'package:venera/foundation/history.dart';
 import 'package:venera/foundation/image_provider/cached_image.dart';
 import 'package:venera/foundation/local.dart';
+import 'package:venera/foundation/log.dart';
 import 'package:venera/foundation/res.dart';
 import 'package:venera/network/download.dart';
 import 'package:venera/network/cache.dart';
@@ -210,6 +211,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
 
   @override
   Future<Res<ComicDetails>> loadData() async {
+    final sw = Stopwatch()..start();
+    final idLabel = '${widget.sourceKey}:${widget.id}';
+    Log.info('PERF', '[ComicPage.loadData] start $idLabel');
+
     if (widget.sourceKey == 'local') {
       var localComic = LocalManager().find(widget.id, ComicType.local);
       if (localComic == null) {
@@ -253,7 +258,10 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
       widget.id,
       ComicType(widget.sourceKey.hashCode),
     );
-    return comicSource.loadComicInfo!(widget.id);
+
+    final res = await comicSource.loadComicInfo!(widget.id);
+    Log.info('PERF', '[ComicPage.loadData] done $idLabel -> ${sw.elapsedMilliseconds}ms');
+    return res;
   }
 
   @override
