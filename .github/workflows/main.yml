@@ -140,44 +140,43 @@ jobs:
       - name: Upload to release
         env:
           TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
-        run: python3 -c "
-import os, glob, urllib.request, urllib.parse, json, sys
+        run: |
+          python3 << 'PYSCRIPT'
+          import os, glob, urllib.request, urllib.parse, json, sys
 
-TOKEN = os.environ.get('TOKEN', '')
-TAG = '${{ inputs.tag_name || github.ref_name }}'
-print(f'Uploading artifacts to release: {TAG}')
+          TOKEN = os.environ.get('TOKEN', '')
+          TAG = "${{ inputs.tag_name || github.ref_name }}"
+          print(f'Uploading artifacts to release: {TAG}')
 
-# Get release ID
-url = f'https://api.github.com/repos/DAZING-FOR/venera/releases/tags/{urllib.parse.quote(TAG, safe=\"\")}'
-req = urllib.request.Request(url)
-req.add_header('Authorization', f'Bearer {TOKEN}')
-try:
-    resp = urllib.request.urlopen(req)
-    RELEASE_ID = json.load(resp)['id']
-except Exception as e:
-    print(f'⚠️ API failed ({e}), using hardcoded ID...')
-    RELEASE_ID = 357864414
+          url = f'https://api.github.com/repos/DAZING-FOR/venera/releases/tags/{urllib.parse.quote(TAG, safe="")}'
+          req = urllib.request.Request(url)
+          req.add_header('Authorization', f'Bearer {TOKEN}')
+          try:
+              resp = urllib.request.urlopen(req)
+              RELEASE_ID = json.load(resp)['id']
+          except Exception as e:
+              print(f'API failed ({e}), using hardcoded ID...')
+              RELEASE_ID = 357864414
 
-print(f'Release ID: {RELEASE_ID}')
+          print(f'Release ID: {RELEASE_ID}')
 
-# Upload each file
-for filepath in sorted(glob.glob('outputs/*')):
-    if not os.path.isfile(filepath):
-        continue
-    fname = os.path.basename(filepath)
-    upload_url = f'https://uploads.github.com/repos/DAZING-FOR/venera/releases/{RELEASE_ID}/assets?name={urllib.parse.quote(fname)}'
-    print(f'  Uploading {fname}...', end=' ')
-    sys.stdout.flush()
-    try:
-        with open(filepath, 'rb') as f:
-            data = f.read()
-        req = urllib.request.Request(upload_url, data=data, method='POST')
-        req.add_header('Authorization', f'Bearer {TOKEN}')
-        req.add_header('Content-Type', 'application/octet-stream')
-        resp = urllib.request.urlopen(req)
-        print(f'HTTP {resp.getcode()} ✅')
-    except Exception as e:
-        print(f'❌ {e}')
+          for filepath in sorted(glob.glob('outputs/*')):
+              if not os.path.isfile(filepath):
+                  continue
+              fname = os.path.basename(filepath)
+              upload_url = f'https://uploads.github.com/repos/DAZING-FOR/venera/releases/{RELEASE_ID}/assets?name={urllib.parse.quote(fname)}'
+              print(f'  Uploading {fname}...', end=' ')
+              sys.stdout.flush()
+              try:
+                  with open(filepath, 'rb') as f:
+                      data = f.read()
+                  req = urllib.request.Request(upload_url, data=data, method='POST')
+                  req.add_header('Authorization', f'Bearer {TOKEN}')
+                  req.add_header('Content-Type', 'application/octet-stream')
+                  resp = urllib.request.urlopen(req)
+                  print(f'HTTP {resp.getcode()} OK')
+              except Exception as e:
+                  print(f'FAILED: {e}')
 
-print('✅ Done')
-"
+          print('Done')
+          PYSCRIPT
