@@ -1,7 +1,12 @@
 name: Build ALL
 run-name: Build ALL
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to upload artifacts to (leave empty for just build)'
+        required: false
+        type: string
   release:
     types: [published]
 
@@ -111,7 +116,6 @@ jobs:
   Release:
     runs-on: ubuntu-22.04
     needs: [Build_Android, Build_Windows, Build_Linux, Build_Linux_ARM64]
-    if: github.event_name == 'release'  # 仅在 release 事件时，附构建产物到 release
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -135,7 +139,7 @@ jobs:
           path: outputs
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag_name || github.ref_name }}
           files: |
             outputs/*.apk
             outputs/*.zip
