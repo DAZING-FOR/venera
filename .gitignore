@@ -43,6 +43,18 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Sensitive / local config
+android/key.properties
+android/local.properties
+*.jks
+*.keystore
+
+# Android Gradle cache
+android/.gradle/
+
+# Flutter generated
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
 # Backup files created by Claude Code
 *_copy.dart
 
