@@ -141,11 +141,12 @@ jobs:
         env:
           TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
         run: |
+          set +e
           TAG="${{ inputs.tag_name || github.ref_name }}"
           echo "Getting release ID for: $TAG"
-          RELEASE_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG" | \
-            python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG")
+          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null)
 
           if [ -z "$RELEASE_ID" ]; then
             echo "⚠️ Release not found for tag $TAG, skipping upload"
@@ -154,6 +155,7 @@ jobs:
 
           echo "Uploading artifacts to release $RELEASE_ID"
           for file in outputs/*; do
+            [ -f "$file" ] || continue
             fname=$(basename "$file")
             echo "  Uploading $fname..."
             curl -s -X POST \
