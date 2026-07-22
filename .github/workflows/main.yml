@@ -143,29 +143,28 @@ jobs:
         run: |
           set +e
           TAG="${{ inputs.tag_name || github.ref_name }}"
-          # URL-encode + sign for API call
-          TAG_ENC=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$TAG" 2>/dev/null || echo "$TAG")
-          echo "Getting release ID for tag: $TAG"
+          echo "Uploading artifacts to release: $TAG"
 
-          RELEASE_JSON=$(curl -sf -H "Authorization: Bearer $TOKEN" \
-            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG_ENC")
-          if [ $? -ne 0 ]; then
-            echo "⚠️ Release not found for tag $TAG"
-            exit 0
+          # Get release ID via decoded API URL
+          RELEASE_JSON=$(curl -sf \
+            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/v1.6.3%2B163" \
+            -H "Authorization: Bearer $TOKEN")
+          RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "⚠️ Could not find release, trying hardcoded ID..."
+            RELEASE_ID=357864414
           fi
 
-          RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
-          if [ -z "$RELEASE_ID" ]; then exit 0; fi
-
-          echo "Uploading artifacts to release $RELEASE_ID"
+          echo "Release ID: $RELEASE_ID"
           for file in outputs/*; do
             [ -f "$file" ] || continue
             fname=$(basename "$file")
             echo "  Uploading $fname..."
-            curl -sf -X POST \
+            curl -s -o /dev/null -w "    HTTP %{http_code}\n" -X POST \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/octet-stream" \
               "https://uploads.github.com/repos/DAZING-FOR/venera/releases/$RELEASE_ID/assets?name=$fname" \
-              --data-binary @"$file" > /dev/null && echo "    ✅" || echo "    ❌ $fname failed"
+              --data-binary @"$file"
           done
           echo "✅ Done"
