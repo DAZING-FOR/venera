@@ -144,7 +144,7 @@ jobs:
           python3 << 'PYSCRIPT'
           import os, glob, urllib.request, urllib.parse, json, sys
 
-          TOKEN = os.environ.get('TOKEN', '')
+          TOKEN = os.environ.get('TOKEN', '').strip()
           TAG = "${{ inputs.tag_name || github.ref_name }}"
           print(f'Uploading artifacts to release: {TAG}')
 
