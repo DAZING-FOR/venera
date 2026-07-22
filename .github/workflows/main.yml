@@ -139,28 +139,33 @@ jobs:
           path: outputs
       - name: Upload to release
         env:
-          GH_TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
         run: |
           set +e
           TAG="${{ inputs.tag_name || github.ref_name }}"
+          # URL-encode + sign for API call
+          TAG_ENC=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$TAG" 2>/dev/null || echo "$TAG")
           echo "Getting release ID for tag: $TAG"
-          RELEASE_ID=$(gh api "repos/DAZING-FOR/venera/releases/tags/$TAG" --jq '.id' 2>/dev/null)
 
-          if [ -z "$RELEASE_ID" ]; then
-            echo "⚠️ Release not found for tag $TAG, skipping upload"
-            gh api "repos/DAZING-FOR/venera/releases/tags/$TAG" 2>/dev/null || echo "(API call failed)"
+          RELEASE_JSON=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG_ENC")
+          if [ $? -ne 0 ]; then
+            echo "⚠️ Release not found for tag $TAG"
             exit 0
           fi
+
+          RELEASE_ID=$(echo "$RELEASE_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+          if [ -z "$RELEASE_ID" ]; then exit 0; fi
 
           echo "Uploading artifacts to release $RELEASE_ID"
           for file in outputs/*; do
             [ -f "$file" ] || continue
             fname=$(basename "$file")
             echo "  Uploading $fname..."
-            curl -s -X POST \
-              -H "Authorization: Bearer $GH_TOKEN" \
+            curl -sf -X POST \
+              -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/octet-stream" \
               "https://uploads.github.com/repos/DAZING-FOR/venera/releases/$RELEASE_ID/assets?name=$fname" \
-              --data-binary @"$file" > /dev/null
+              --data-binary @"$file" > /dev/null && echo "    ✅" || echo "    ❌ $fname failed"
           done
           echo "✅ Done"
