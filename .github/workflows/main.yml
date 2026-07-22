@@ -143,13 +143,16 @@ jobs:
         run: |
           set +e
           TAG="${{ inputs.tag_name || github.ref_name }}"
-          echo "Getting release ID for: $TAG"
+          # URL-encode the tag (in case it contains + or other special chars)
+          TAG_ENCODED=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$TAG" 2>/dev/null || echo "$TAG")
+          echo "Getting release ID for tag: $TAG (encoded: $TAG_ENCODED)"
           RELEASE_JSON=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG")
+            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG_ENCODED")
           RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null)
 
           if [ -z "$RELEASE_ID" ]; then
             echo "⚠️ Release not found for tag $TAG, skipping upload"
+            echo "API response: $(echo "$RELEASE_JSON" | jq -c .message 2>/dev/null || echo unknown)"
             exit 0
           fi
 
