@@ -139,20 +139,16 @@ jobs:
           path: outputs
       - name: Upload to release
         env:
-          TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
         run: |
           set +e
           TAG="${{ inputs.tag_name || github.ref_name }}"
-          # URL-encode the tag (in case it contains + or other special chars)
-          TAG_ENCODED=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$TAG" 2>/dev/null || echo "$TAG")
-          echo "Getting release ID for tag: $TAG (encoded: $TAG_ENCODED)"
-          RELEASE_JSON=$(curl -s -H "Authorization: Bearer $TOKEN" \
-            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG_ENCODED")
-          RELEASE_ID=$(echo "$RELEASE_JSON" | jq -r '.id // empty' 2>/dev/null)
+          echo "Getting release ID for tag: $TAG"
+          RELEASE_ID=$(gh api "repos/DAZING-FOR/venera/releases/tags/$TAG" --jq '.id' 2>/dev/null)
 
           if [ -z "$RELEASE_ID" ]; then
             echo "⚠️ Release not found for tag $TAG, skipping upload"
-            echo "API response: $(echo "$RELEASE_JSON" | jq -c .message 2>/dev/null || echo unknown)"
+            gh api "repos/DAZING-FOR/venera/releases/tags/$TAG" 2>/dev/null || echo "(API call failed)"
             exit 0
           fi
 
@@ -162,7 +158,7 @@ jobs:
             fname=$(basename "$file")
             echo "  Uploading $fname..."
             curl -s -X POST \
-              -H "Authorization: Bearer $TOKEN" \
+              -H "Authorization: Bearer $GH_TOKEN" \
               -H "Content-Type: application/octet-stream" \
               "https://uploads.github.com/repos/DAZING-FOR/venera/releases/$RELEASE_ID/assets?name=$fname" \
               --data-binary @"$file" > /dev/null
