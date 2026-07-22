@@ -139,8 +139,27 @@ jobs:
           path: outputs
       - name: Upload to release
         env:
-          GH_TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.ACTION_GITHUB_TOKEN }}
         run: |
           TAG="${{ inputs.tag_name || github.ref_name }}"
-          echo "Uploading artifacts to release: $TAG"
-          gh release upload "$TAG" outputs/* --clobber 2>&1 || echo "⚠️ Upload failed (maybe no release for this ref)"
+          echo "Getting release ID for: $TAG"
+          RELEASE_ID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+            "https://api.github.com/repos/DAZING-FOR/venera/releases/tags/$TAG" | \
+            python3 -c "import sys,json; print(json.load(sys.stdin)['id'])" 2>/dev/null)
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "⚠️ Release not found for tag $TAG, skipping upload"
+            exit 0
+          fi
+
+          echo "Uploading artifacts to release $RELEASE_ID"
+          for file in outputs/*; do
+            fname=$(basename "$file")
+            echo "  Uploading $fname..."
+            curl -s -X POST \
+              -H "Authorization: Bearer $TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              "https://uploads.github.com/repos/DAZING-FOR/venera/releases/$RELEASE_ID/assets?name=$fname" \
+              --data-binary @"$file" > /dev/null
+          done
+          echo "✅ Done"
